@@ -1,48 +1,54 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-st.set_page_config(page_title="Sales Forecasting", layout="wide")
+# Page config
+st.set_page_config(page_title="AI Sales Forecasting", layout="wide")
 
-st.title("📊 AI Sales Forecasting Dashboard")
+# Custom CSS (🔥 UI Enhancement)
+st.markdown("""
+    <style>
+    .main {background-color: #0e1117;}
+    .stMetric {background-color: #1c1f26; padding: 10px; border-radius: 10px;}
+    </style>
+""", unsafe_allow_html=True)
 
-# 📁 File Upload
-uploaded_file = st.file_uploader("Upload your dataset (CSV)", type=["csv"])
+# Title
+st.title("🚀 AI Sales Forecasting Dashboard")
+st.markdown("### 📊 Predict future sales with Machine Learning")
+
+# Sidebar
+st.sidebar.header("⚙️ Controls")
+
+uploaded_file = st.sidebar.file_uploader("Upload Dataset", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv("sales.csv", encoding='latin1')
-
-    # Clean columns
+    df = pd.read_csv(uploaded_file, encoding='latin1')
     df.columns = df.columns.str.strip()
 
-    st.subheader("Raw Data")
-    st.write(df.head())
-
-    # Convert date
+    # Date processing
     df['Order Date'] = pd.to_datetime(df['Order Date'])
+    df = df.sort_values('Order Date')
 
     # Filters
-    col1, col2 = st.columns(2)
-
     if 'Region' in df.columns:
-        region = col1.selectbox("Select Region", df['Region'].unique())
+        region = st.sidebar.selectbox("🌍 Region", df['Region'].unique())
         df = df[df['Region'] == region]
 
     if 'Category' in df.columns:
-        category = col2.selectbox("Select Category", df['Category'].unique())
+        category = st.sidebar.selectbox("📦 Category", df['Category'].unique())
         df = df[df['Category'] == category]
 
-    # Group by date
+    # Group data
     df = df.groupby('Order Date')['Sales'].sum().reset_index()
 
-    # Feature Engineering
+    # Features
     df['day'] = df['Order Date'].dt.day
     df['month'] = df['Order Date'].dt.month
     df['year'] = df['Order Date'].dt.year
 
-    # Train/Test Split
+    # Split
     split = int(len(df) * 0.8)
     train = df[:split]
     test = df[split:]
@@ -59,16 +65,20 @@ if uploaded_file:
 
     y_pred = model.predict(X_test)
 
-    # 📊 Metrics
+    # Metrics
     mae = mean_absolute_error(y_test, y_pred)
     rmse = mean_squared_error(y_test, y_pred) ** 0.5
 
-    st.subheader("📈 Model Performance")
-    st.write(f"MAE: {mae:.2f}")
-    st.write(f"RMSE: {rmse:.2f}")
+    # KPI Section
+    st.subheader("📊 Key Metrics")
+    col1, col2, col3 = st.columns(3)
 
-    # Forecast days input
-    days = st.slider("Select number of days to forecast", 1, 30, 7)
+    col1.metric("📉 MAE", f"{mae:.2f}")
+    col2.metric("📊 RMSE", f"{rmse:.2f}")
+    col3.metric("📦 Total Sales", f"{df['Sales'].sum():,.0f}")
+
+    # Forecast days
+    days = st.sidebar.slider("📅 Forecast Days", 1, 30, 7)
 
     future_dates = pd.date_range(df['Order Date'].max(), periods=days+1)[1:]
 
@@ -79,16 +89,21 @@ if uploaded_file:
 
     future_df['Predicted Sales'] = model.predict(future_df[['day','month','year']])
 
-    # Show forecast
-    st.subheader("📊 Future Forecast")
-    st.write(future_df)
+    # Charts
+    st.subheader("📈 Sales Trend")
 
-    # 📥 Download button
+    col4, col5 = st.columns(2)
+
+    col4.line_chart(df.set_index('Order Date')['Sales'])
+    col5.line_chart(future_df.set_index('Order Date')['Predicted Sales'])
+
+    # Forecast Table
+    st.subheader("📊 Future Predictions")
+    st.dataframe(future_df)
+
+    # Download
     csv = future_df.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Forecast CSV", csv, "forecast.csv", "text/csv")
+    st.download_button("⬇️ Download Forecast", csv, "forecast.csv")
 
-    # 📉 Charts
-    st.subheader("📉 Sales Trend")
-
-    st.line_chart(df.set_index('Order Date')['Sales'])
-    st.line_chart(future_df.set_index('Order Date')['Predicted Sales'])
+else:
+    st.warning("👈 Upload a dataset to start")
